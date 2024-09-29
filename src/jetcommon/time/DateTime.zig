@@ -75,13 +75,26 @@ pub fn dayOfWeek(self: DateTime) u4 {
 
 pub inline fn dayName(self: DateTime) []const u8 {
     return switch (self.dayOfWeek()) {
+        0 => "Sunday",
+        1 => "Monday",
+        2 => "Tuesday",
+        3 => "Wednesday",
+        4 => "Thursday",
+        5 => "Friday",
+        6 => "Saturday",
+        else => unreachable,
+    };
+}
+
+pub inline fn dayNameAbbreviated(self: DateTime) []const u8 {
+    return switch (self.dayOfWeek()) {
+        0 => "Sun",
         1 => "Mon",
         2 => "Tue",
         3 => "Wed",
         4 => "Thu",
         5 => "Fri",
         6 => "Sat",
-        7 => "Sun",
         else => unreachable,
     };
 }
@@ -124,28 +137,154 @@ pub inline fn minute(self: DateTime) u8 {
     return self.zul_datetime.time().min;
 }
 
-pub inline fn seconds(self: DateTime) u8 {
+pub inline fn second(self: DateTime) u8 {
     return self.zul_datetime.time().sec;
 }
 
-pub fn strftime(self: DateTime, writer: anytype, fmt: []const u8) !void {
-    var index: usize = 0;
+pub inline fn microseconds(self: DateTime) i64 {
+    return self.zul_datetime.micros;
+}
 
-    while (index < fmt.len) {
+pub fn toJson(self: DateTime, writer: anytype) !void {
+    try self.strftime(writer,
+        \\"%Y-%m-%dT%H:%M:%SZ"
+    );
+}
+
+pub fn toString(self: DateTime, writer: anytype) !void {
+    try self.strftime(writer, "%c");
+}
+
+pub fn eql(self: DateTime, other: DateTime) bool {
+    return self.zul_datetime.micros == other.zul_datetime.micros;
+}
+
+pub fn strftime(self: DateTime, writer: anytype, comptime fmt: []const u8) !void {
+    comptime var index: usize = 0;
+
+    inline while (index < fmt.len) {
         if (parseToken(fmt[index..])) |token| {
             switch (token) {
+                .abbreviated_weekday_name => {
+                    // TODO: locale
+                    try writer.print("{s}", .{self.dayNameAbbreviated()});
+                },
+                .full_weekday_name => {
+                    // TODO: locale
+                    try writer.print("{s}", .{self.weekdayName()});
+                },
+                .abbreviated_month_name => {
+                    // TODO: locale
+                    try writer.print("{s}", .{self.monthNameAbbreviated()});
+                },
+                .full_month_name => {
+                    // TODO: locale
+                    try writer.print("{s}", .{self.monthName()});
+                },
                 .date_and_time => {
-                    try writer.print("{s} {s} {} {}:{}:{} {}", .{
-                        self.dayName(),
+                    // TODO: locale
+                    try writer.print("{s} {s} {} {:0>2}:{:0>2}:{:0>2} {}", .{
+                        self.dayNameAbbreviated(),
                         self.monthNameAbbreviated(),
                         self.day(),
                         self.hour(),
                         self.minute(),
-                        self.seconds(),
+                        self.second(),
                         self.year(),
                     });
                 },
-                else => return error.UnsupportedTimeFormatToken,
+                .year_truncated => {
+                    try writer.print("{:0>2}", .{self.year() % 100});
+                },
+                .day_of_month_zero_padded => {
+                    try writer.print("{:0>2}", .{self.day()});
+                },
+                .day_of_month_space_padded => {
+                    try writer.print("{: >2}", .{self.day()});
+                },
+                .MM_DD_YY => {
+                    try writer.print("{:0>2}-{:0>2}-{:0>2}", .{ self.month(), self.day(), self.year() % 100 });
+                },
+                .YYYY_MM_DD => {
+                    try writer.print("{:0>4}-{:0>2}-{:0>2}", .{ self.year(), self.month(), self.day() });
+                },
+                .hour_24hr => {
+                    try writer.print("{:0>2}", .{self.hour()});
+                },
+                .hour_12hr => {
+                    const hr = self.hour();
+                    try writer.print(
+                        "{:0>2}",
+                        .{if (hr < 13 and hr > 0) hr else if (hr == 0) 12 else (hr - 12)},
+                    );
+                },
+                .month_decimal => {
+                    try writer.print("{:0>2}", .{self.month()});
+                },
+                .minute => {
+                    try writer.print("{:0>2}", .{self.minute()});
+                },
+                .am_pm_designation => {
+                    try writer.print("{s}", .{if (hour >= 12) "PM" else "AM"});
+                },
+                .clock_time_12hr => {
+                    // TODO: locale
+                    try writer.print("{:0>2}:{:0>2}:{:0>2} {s}", .{
+                        self.hour(),
+                        self.minute(),
+                        self.second(),
+                        if (hour >= 12) "pm" else "am",
+                    });
+                },
+                .clock_time_24hr => {
+                    try writer.print("{:0>2}:{:0>2}", .{
+                        self.hour(),
+                        self.minute(),
+                    });
+                },
+                .second => {
+                    try writer.print("{:0>2}", .{self.second()});
+                },
+                .tab => {
+                    try writer.print("\t", .{});
+                },
+                .iso8601_time => {
+                    try writer.print("{:0>2}:{:0>2}:{:0>2}", .{
+                        self.hour(),
+                        self.minute(),
+                        self.second(),
+                    });
+                },
+                .iso8601_weekday => {
+                    try writer.print("{}", .{self.day()});
+                },
+                .weekday_decimal_sunday_first => {
+                    try writer.print("{s}", .{});
+                },
+                .date => {
+                    // TODO: locale
+                    try writer.print("{:0>2}/{:0>2}/{:0>2}", .{ self.month(), self.day(), self.year() % 100 });
+                },
+                .time => {
+                    // TODO: locale
+                    try writer.print("{:0>2}:{:0>2}:{:0>2}", .{
+                        self.hour(),
+                        self.minute(),
+                        self.second(),
+                    });
+                },
+                .year => {
+                    try writer.print("{}", .{self.year()});
+                },
+                .week_based_year_truncated,
+                .week_based_year,
+                .day_of_year,
+                .week_number_sunday_first,
+                .week_number_iso8601,
+                .timezone_offset,
+                // TODO: locale
+                .timezone_name,
+                => return error.UnsupportedTimeFormatToken,
             }
 
             index += 2;
@@ -164,6 +303,7 @@ const Token = enum {
     date_and_time,
     year_truncated,
     day_of_month_zero_padded,
+    day_of_month_space_padded,
     MM_DD_YY,
     YYYY_MM_DD,
     week_based_year_truncated,
@@ -174,8 +314,8 @@ const Token = enum {
     month_decimal,
     minute,
     am_pm_designation,
-    clock_time_24hr,
     clock_time_12hr,
+    clock_time_24hr,
     second,
     tab,
     iso8601_time,
@@ -185,13 +325,14 @@ const Token = enum {
     weekday_decimal_sunday_first,
     date,
     time,
+    year,
     timezone_offset,
     timezone_name,
 };
 
 const tokens = [_]Token{};
 
-fn parseToken(string: []const u8) ?Token {
+inline fn parseToken(comptime string: []const u8) ?Token {
     if (string.len < 2) return null;
     if (string[0] != '%') return null;
     return switch (string[1]) {
@@ -203,6 +344,7 @@ fn parseToken(string: []const u8) ?Token {
         'c' => .date_and_time,
         'C' => .year_truncated,
         'd' => .day_of_month_zero_padded,
+        'e' => .day_of_month_space_padded,
         'D' => .MM_DD_YY,
         'F' => .YYYY_MM_DD,
         'g' => .week_based_year_truncated,
@@ -214,8 +356,8 @@ fn parseToken(string: []const u8) ?Token {
         'm' => .month_decimal,
         'M' => .minute,
         'p' => .am_pm_designation,
-        'r' => .clock_time_24hr,
-        'R' => .clock_time_12hr,
+        'r' => .clock_time_12hr,
+        'R' => .clock_time_24hr,
         'S' => .second,
         't' => .tab,
         'T' => .iso8601_time,
@@ -225,6 +367,8 @@ fn parseToken(string: []const u8) ?Token {
         'w' => .weekday_decimal_sunday_first,
         'x' => .date,
         'X' => .time,
+        'y' => .year_truncated,
+        'Y' => .year,
         'z' => .timezone_offset,
         'Z' => .timezone_name,
         else => null,
