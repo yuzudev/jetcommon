@@ -2,6 +2,7 @@
 const std = @import("std");
 
 pub const types = @import("jetcommon/types.zig");
+pub const fmt = @import("jetcommon/fmt.zig");
 
 pub const DateTime = types.DateTime;
 pub const Time = types.Time;
