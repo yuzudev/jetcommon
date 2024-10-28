@@ -22,7 +22,7 @@ pub fn zig(
         const tty = std.io.tty.detectConfig(std.io.getStdErr());
         const writer = std.io.getStdErr().writer();
         var it = std.mem.tokenizeScalar(u8, input, '\n');
-        var line_number: usize = 1;
+        var line_number: usize = 0;
         while (it.next()) |line| : (line_number += 1) {
             const maybe_err = for (ast.errors) |err| {
                 if (ast.tokenLocation(0, err.token).line == line_number + 1) break err;
