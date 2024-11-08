@@ -22,7 +22,7 @@ pub fn zig(
         const tty = std.io.tty.detectConfig(std.io.getStdErr());
         const writer = std.io.getStdErr().writer();
         var it = std.mem.tokenizeScalar(u8, input, '\n');
-        var line_number: usize = 0;
+        var line_number: usize = 1;
         while (it.next()) |line| : (line_number += 1) {
             const maybe_err = for (ast.errors) |err| {
                 if (ast.tokenLocation(0, err.token).line == line_number + 1) break err;
@@ -35,7 +35,7 @@ pub fn zig(
                 try ast.renderError(err, err_writer);
                 break :blk try buf.toOwnedSlice();
             } else "";
-            std.debug.print("{: <4} {s}{s}\n", .{
+            try writer.print("{: <4} {s}{s}\n", .{
                 line_number,
                 line,
                 error_message,
@@ -43,7 +43,7 @@ pub fn zig(
         }
         if (message) |msg| {
             try tty.setColor(writer, .yellow);
-            std.debug.print("\n{s}\n", .{msg});
+            try writer.print("\n{s}\n", .{msg});
         }
         try tty.setColor(writer, .reset);
         return error.JetCommonInvalidZigCode;
