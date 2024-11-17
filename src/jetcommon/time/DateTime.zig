@@ -5,6 +5,7 @@ const zul = @import("zul");
 const Time = @import("../time.zig").Time;
 const Date = @import("../time.zig").Date;
 const TimestampPrecision = @import("../time.zig").TimestampPrecision;
+const Operator = @import("../../jetcommon.zig").Operator;
 
 const DateTime = @This();
 pub const DateTimeFormat = enum { rfc3339, iso8601 };
@@ -46,6 +47,24 @@ pub fn unix(self: DateTime, precision: TimestampPrecision) i64 {
         .seconds => self.zul_datetime.unix(.seconds),
         .milliseconds => self.zul_datetime.unix(.milliseconds),
         .microseconds => self.zul_datetime.unix(.microseconds),
+    };
+}
+
+pub fn compare(self: DateTime, comptime operator: Operator, other: DateTime) bool {
+    const cmp = self.zul_datetime.order(other.zul_datetime);
+    return switch (cmp) {
+        .eq => switch (operator) {
+            .equal, .less_or_equal, .greater_or_equal => true,
+            else => false,
+        },
+        .lt => switch (operator) {
+            .less_or_equal, .less_than => true,
+            else => false,
+        },
+        .gt => switch (operator) {
+            .greater_or_equal, .greater_than => true,
+            else => false,
+        },
     };
 }
 
@@ -373,4 +392,15 @@ inline fn parseToken(comptime string: []const u8) ?Token {
         'Z' => .timezone_name,
         else => null,
     };
+}
+
+test "compare" {
+    const a = try DateTime.fromUnix(1731834128, .seconds);
+    const b = try DateTime.fromUnix(1731834128, .seconds);
+    const c = try DateTime.fromUnix(1731834127, .seconds);
+    try std.testing.expect(a.compare(.equal, b));
+    try std.testing.expect(c.compare(.less_than, a));
+    try std.testing.expect(c.compare(.less_or_equal, a));
+    try std.testing.expect(b.compare(.greater_than, c));
+    try std.testing.expect(b.compare(.greater_or_equal, c));
 }

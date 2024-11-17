@@ -7,6 +7,7 @@ pub const fmt = @import("jetcommon/fmt.zig");
 pub const DateTime = types.DateTime;
 pub const Time = types.Time;
 pub const Date = types.Date;
+pub const Operator = enum { equal, less_than, greater_than, less_or_equal, greater_or_equal };
 
 test {
     std.testing.refAllDeclsRecursive(@This());
