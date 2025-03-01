@@ -1,5 +1,6 @@
 .{
-    .name = "jetcommon",
+    .name = .jetcommon,
+    .fingerprint = 0xfb4694810d3ff68c,
     .version = "0.1.0",
     .dependencies = .{
         .zul = .{

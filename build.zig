@@ -9,6 +9,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/jetcommon.zig"),
         .target = target,
         .optimize = optimize,
+        .use_llvm = false,
     });
 
     const jetcommon_module = b.addModule("jetcommon", .{ .root_source_file = b.path("src/jetcommon.zig") });
